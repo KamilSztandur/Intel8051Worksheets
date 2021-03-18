@@ -5,113 +5,93 @@ Lab4                                                                            
                          4     ;               *-------------------------------*
                          5
                          6     ORG 0000h
-0000 120011              7             lcall reload_T0                 ; Reset licznika
-0003 020018              8             ljmp init                       ; Inicjalizuj licznik
-                         9
-                        10     ORG 000Bh                               ; Wektor przerwania T0
-000B 120011             11             lcall reload_T0
-000E 02003F             12             ljmp incr_counter               ; Obsłużenie przerwania
-                        13
-                        14     reload_T0:
-0011 758AFD             15             MOV TL0, #0FDh                  ; | Zresetowanie wartości timera
-0014 758CFF             16             MOV TH0, #0FFh                  ; |
-0017 22                 17             RET
-                        18
-                        19     init:
-0018 75A800             20             MOV IE, #0h                     ; Wyłączenie wszystkich przerwań
-001B C28C               21             CLR TR0                         ; Zatrzymanie timera T0
-001D C28D               22             CLR TF0                         ; Wyzerowanie flagi przepełnienia
-001F 758901             23             MOV TMOD, #01h                  ; Inicjalizacja timera T0
-0022 120011             24             lcall reload_T0                 ; Ustawienie wartości timera
-0025 75B800             25             MOV IP, #0h                     ; Ustawienie priorytetu przerwań na niski
-0028 75A882             26             MOV IE, #82h                    ; Odblokuj przerwania timera T0
-002B 120032             27             lcall reset_counter
-002E D28C               28             SETB TR0                        ; Uruchomienie odliczania
+0000 020018              7             ljmp init                       ; Inicjalizuj licznik
+                         8
+                         9     ORG 000Bh                               ; Wektor przerwania T0
+000B 120011             10             lcall reload_T0
+000E 020042             11             ljmp incr_by_one                ; Obsłużenie przerwania
+                        12
+                        13     reload_T0:
+0011 758A88             14             MOV TL0, #088h                  ; | Zresetowanie wartości timera
+0014 758CFF             15             MOV TH0, #0FFh                  ; |
+0017 22                 16             RET
+                        17
+                        18     init:
+0018 75A800             19             MOV IE, #0h                     ; Wyłączenie wszystkich przerwań
+001B C28C               20             CLR TR0                         ; Zatrzymanie timera T0
+001D C28D               21             CLR TF0                         ; Wyzerowanie flagi przepełnienia
+001F 758901             22             MOV TMOD, #01h                  ; Inicjalizacja timera T0
+0022 120011             23             lcall reload_T0                 ; Ustawienie wartości timera
+0025 75B800             24             MOV IP, #0h                     ; Ustawienie priorytetu przerwań na niski
+0028 75A882             25             MOV IE, #82h                    ; Odblokuj przerwania timera T0
+002B 903000             26             MOV DPTR, #3000h                ; Ustaw indeks początkowy
+002E 120035             27             lcall reset_counter
+0031 D28C               28             SETB TR0                        ; Uruchomienie odliczania
                         29
-0030 80FE               30     main:   sjmp main                       ; Nieskończona pętla (czeka na przerwanie)
+0033 80FE               30     main:   sjmp main                       ; Nieskończona pętla (czeka na przerwanie)
                         31
                         32     reset_counter:
-0032 753000             33             MOV 30h, #0h                    ; Reset rejestru liczącego jedności
-0035 753100             34             MOV 31h, #0h                    ; Reset rejestru liczącego dziesiątki
-0038 75A0C0             35             MOV P2, #11000000b              ; Wyświetl znak "0" na wyświetlaczu dziesiątek
-003B 75B0C0             36             MOV P3, #11000000b              ; Wyświetl znak "0" na wyświetlaczu jedności
-003E 22                 37             RET
+0035 753000             33             MOV 30h, #0h                    ; Reset rejestru liczącego jedności
+0038 753100             34             MOV 31h, #0h                    ; Reset rejestru liczącego dziesiątki
+003B 75A0C0             35             MOV P2, #11000000b              ; Wyświetl znak "0" na wyświetlaczu dziesiątek
+003E 75B0C0             36             MOV P3, #11000000b              ; Wyświetl znak "0" na wyświetlaczu jedności
+0041 22                 37             RET
                         38
-                        39     incr_counter:
-003F 0530               40             INC 30h                         ; Zwiększ rejestr jedności o 1
-0041 E530               41             MOV A, 30h                      ; Przez akumulator sprawdź, czy rejestr jedności
-0043 B40A14             42             CJNE A, #1010b, update_LED      ; nie przekroczył 10, jeżeli nie to aktualizuj ekran.
-0046 020049             43             ljmp incr_decs                  ; Jeżeli przekroczył, to zwiększ liczbę dziesiątek
-                        44
-                        45     incr_decs:
-0049 0531               46             INC 31h                         ; Zwiększ rejestr dziesiątek o 1
-004B 753000             47             MOV 30h, #0h                    ; Wyzeruj rejestr jedności
-004E E531               48             MOV A, 31h                      ; Przez akumulator sprawdź, czy rejestr dziesiątek
-0050 B40A07             49             CJNE A, #1010b, update_LED      ; nie przekroczył 10, jeżeli nie to aktualizuj ekran.
-0053 020056             50             ljmp overflowed                 ; Jeżeli przekroczył, to jest 100 i zresetuj go
-                        51
-                        52     overflowed:
-0056 120032             53             lcall reset_counter             ; Całkowity reset licznika
-0059 32                 54             RETI
-                        55
-                        56     update_LED:
-005A C0D0               57             PUSH PSW                ; Zrzuć na stos rejestr znaczników
-005C C0E0               58             PUSH ACC                ; Zrzuć na stos akumulator
+                        39     incr_by_one:
+0042 C0D0               40             PUSH PSW                        ; Zrzuć na stos rejestr znaczników
+0044 C0E0               41             PUSH ACC                        ; Zrzuć na stos akumulator
+0046 0530               42             INC 30h                         ; Zwiększ rejestr jedności o 1
+0048 E530               43             MOV A, 30h                      ; | Przez akumulator sprawdź, czy rejestr jedności
+004A B40A18             44             CJNE A, #1010b, update_LED_unit ; | nie przekroczył 10, jeżeli nie to aktualizuj ekran.
+004D 020050             45             ljmp incr_decs                  ; Jeżeli przekroczył, to zwiększ liczbę dziesiątek
+                        46
+                        47     incr_decs:
+0050 0531               48             INC 31h                         ; Zwiększ rejestr dziesiątek o 1
+0052 753000             49             MOV 30h, #0h                    ; Wyzeruj rejestr jedności
+0055 E531               50             MOV A, 31h                      ; | Przez akumulator sprawdź, czy rejestr dziesiątek
+0057 B40A15             51             CJNE A, #1010b, update_LED_tens ; | nie przekroczył 10, jeżeli nie to aktualizuj ekran.
+005A 02005D             52             ljmp overflowed                 ; Jeżeli przekroczył, to jest 100 i zresetuj go
+                        53
+                        54     overflowed:
+005D 120035             55             lcall reset_counter             ; Całkowity reset licznika
+0060 D0E0               56             POP ACC                         ; Odzyskaj wartość akumulatora ze stosu
+0062 D0D0               57             POP PSW                         ; Odzyskaj wartość rejestru znaczników ze stosu
+0064 32                 58             RETI                            ; Powrót z przerwania
                         59
-005E 12006F             60             lcall parse_units       ; Odczytaj sekwencję bitów ekranu dla aktualnej wartości
-0061 F8                 61             MOV R0, A               ; rejestru JEDNOŚCI i za pomocą akumulatora podaj odczytaną
-0062 88B0               62             MOV P3, R0              ; sekwencję do portu wyświetlacza jedności P3
-                        63
-0064 120076             64             lcall parse_decs        ; Odczytaj sekwencję bitów ekranu dla aktualnej wartości
-0067 F9                 65             MOV R1, A               ; rejestru DZIESIiĄEK i za pomocą akumulatora podaj odczytaną
-0068 89A0               66             MOV P2, R1              ; sekwencję do portu wyświetlacza dziesiątek P2
+                        60     update_LED_unit:
+0065 E530               61             MOV A, 30h                      ; Pobierz liczbę binarną odpowiadającą cyfrze
+0067 93                 62             MOVC A, @A+DPTR                 ; Pobierz sekwencję bitów szukanej cyfry do A
+0068 F5B0               63             MOV P3, A                       ; Wyświetl nową cyfrę jedności
+006A D0E0               64             POP ACC                         ; Odzyskaj wartość akumulatora ze stosu
+006C D0D0               65             POP PSW                         ; Odzyskaj wartość rejestru znaczników ze stosu
+006E 32                 66             RETI                            ; Powrót z przerwania
                         67
-006A D0E0               68             POP ACC                 ; Odzyskaj wartość akumulatora ze stosu
-006C D0D0               69             POP PSW                 ; Odzyskaj wartość rejestru znaczników ze stosu
-006E 32                 70             RETI
-                        71
-                        72     parse_units:    ; Załaduj do akumulatora sekwencje bitów wyświetlacza dla cyfry jedności
-006F E530               73             MOV A, 30h
-0071 12007D             74             call set_corr_char_DPTR_index   ; Ustaw prawidłowy indeks wskaźnika danych
-0074 93                 75             MOVC A, @A+DPTR                 ; Pobierz sekwencję bitów szukanej cyfry do AC
-0075 22                 76             RET
-                        77
-                        78     parse_decs:     ; Załaduj do akumulatora sekwencje bitów wyświetlacza dla cyfry dziesiątek
-0076 E531               79             MOV A, 31h
-0078 12007D             80             call set_corr_char_DPTR_index   ; Ustaw prawidłowy indeks wskaźnika danych
-007B 93                 81             MOVC A,@A+DPTR                  ; Pobierz sekwencję bitów szukanej cyfry do AC
-007C 22                 82             RET
-                        83
-                        84     set_corr_char_DPTR_index:
-007D 903000             85             MOV DPTR, #3000h                ; Ustaw indeks początkowy
-0080 B40002             86             CJNE A, #00h, increment_dptr    ; Wykonaj A iteracji, ustaw DPTR do wielkości A
+                        68     update_LED_tens:
+006F E531               69             MOV A, 31h                      ; Pobierz liczbę binarną odpowiadającą cyfrze
+0071 93                 70             MOVC A, @A+DPTR                 ; Pobierz sekwencję bitów szukanej cyfry do A
+0072 F5A0               71             MOV P2, A                       ; Wyświetl nową cyfrę dziesiątek
+0074 D0E0               72             POP ACC                         ; Odzyskaj wartość akumulatora ze stosu
+0076 D0D0               73             POP PSW                         ; Odzyskaj wartość rejestru znaczników ze stosu
+0078 32                 74             RETI                            ; Powrót z przerwania
+                        75
+                        76     ORG 3000h ; Tablica przechowująca właściwe sekwencje bitów dla znaków wyświetlacza
+3000 C0                 77             DB 11000000b ;0
+3001 F9                 78             DB 11111001b ;1
+3002 A4                 79             DB 10100100b ;2
+3003 B0                 80             DB 10110000b ;3
+3004 99                 81             DB 10011001b ;4
+3005 92                 82             DB 10010010b ;5
+3006 82                 83             DB 10000010b ;6
+3007 F8                 84             DB 11111000b ;7
+3008 80                 85             DB 10000000b ;8
+3009 90                 86             DB 10010000b ;9
                         87
-                        88     DPTR_is_set:
-0083 E4                 89             CLR A   ; Rejestr DPTR ustawiony, zresetuj akumulator do wartości zerowej
-0084 22                 90             RET
-                        91
-                        92     increment_dptr:                         ; Iteracyjnie zwiększaj DPTR aż nie będzie równy A
-0085 A3                 93             INC DPTR                        ; Główna pętla ustalająca DPTR
-0086 D5E0FC             94             DJNZ A, increment_dptr          ; Dekrementuj A aż nie będzie równe 0
-0089 020083             95             LJMP DPTR_is_set                ; Zakres nieprzepełniony, DPTR ustalone. Kończymy.
-                        96
-                        97     ORG 3000h ; Tablica przechowująca właściwe sekwencje bitów dla znaków wyświetlacza
-3000 C0                 98             DB 11000000b ;0
-3001 F9                 99             DB 11111001b ;1
-3002 A4                100             DB 10100100b ;2
-3003 B0                101             DB 10110000b ;3
-3004 99                102             DB 10011001b ;4
-3005 92                103             DB 10010010b ;5
-3006 82                104             DB 10000010b ;6
-3007 F8                105             DB 11111000b ;7
-3008 80                106             DB 10000000b ;8
-3009 90                107             DB 10010000b ;9
 ****WARNING:Missing`END'directive
 ASSEMBLY COMPLETE, NO ERRORS FOUND, 1 WARNING
 
 
 ERROR SUMMARY:
-Line 107, WARNING:Missing`END'directive
+Line 87, WARNING:Missing`END'directive
 
 SYMBOL TABLE:
 ??MCU_8051_IDE . . . . . . . . . . .  N  NUMB  8051H  NOT USED
@@ -173,7 +153,6 @@ DP1H . . . . . . . . . . . . . . . .  D  ADDR  0085H  NOT USED
 DP1L . . . . . . . . . . . . . . . .  D  ADDR  0084H  NOT USED
 DPH. . . . . . . . . . . . . . . . .  D  ADDR  0083H  NOT USED
 DPL. . . . . . . . . . . . . . . . .  D  ADDR  0082H  NOT USED
-DPTR_IS_SET. . . . . . . . . . . . .  C  ADDR  0083H
 EA . . . . . . . . . . . . . . . . .  B  ADDR  00AFH  NOT USED
 EC . . . . . . . . . . . . . . . . .  B  ADDR  00AEH  NOT USED
 EECON. . . . . . . . . . . . . . . .  D  ADDR  0096H  NOT USED
@@ -192,9 +171,8 @@ FE . . . . . . . . . . . . . . . . .  B  ADDR  009FH  NOT USED
 IE . . . . . . . . . . . . . . . . .  D  ADDR  00A8H
 IE0. . . . . . . . . . . . . . . . .  B  ADDR  0089H  NOT USED
 IE1. . . . . . . . . . . . . . . . .  B  ADDR  008BH  NOT USED
-INCREMENT_DPTR . . . . . . . . . . .  C  ADDR  0085H
-INCR_COUNTER . . . . . . . . . . . .  C  ADDR  003FH
-INCR_DECS. . . . . . . . . . . . . .  C  ADDR  0049H
+INCR_BY_ONE. . . . . . . . . . . . .  C  ADDR  0042H
+INCR_DECS. . . . . . . . . . . . . .  C  ADDR  0050H
 INIT . . . . . . . . . . . . . . . .  C  ADDR  0018H
 INT0 . . . . . . . . . . . . . . . .  B  ADDR  00B2H  NOT USED
 INT1 . . . . . . . . . . . . . . . .  B  ADDR  00B3H  NOT USED
@@ -209,10 +187,10 @@ IT1. . . . . . . . . . . . . . . . .  B  ADDR  008AH  NOT USED
 KBE. . . . . . . . . . . . . . . . .  D  ADDR  009DH  NOT USED
 KBF. . . . . . . . . . . . . . . . .  D  ADDR  009EH  NOT USED
 KBLS . . . . . . . . . . . . . . . .  D  ADDR  009CH  NOT USED
-MAIN . . . . . . . . . . . . . . . .  C  ADDR  0030H
+MAIN . . . . . . . . . . . . . . . .  C  ADDR  0033H
 OSCCON . . . . . . . . . . . . . . .  D  ADDR  0086H  NOT USED
 OV . . . . . . . . . . . . . . . . .  B  ADDR  00D2H  NOT USED
-OVERFLOWED . . . . . . . . . . . . .  C  ADDR  0056H
+OVERFLOWED . . . . . . . . . . . . .  C  ADDR  005DH
 P. . . . . . . . . . . . . . . . . .  B  ADDR  00D0H  NOT USED
 P0 . . . . . . . . . . . . . . . . .  D  ADDR  0080H  NOT USED
 P1 . . . . . . . . . . . . . . . . .  D  ADDR  0090H  NOT USED
@@ -226,8 +204,6 @@ P4 . . . . . . . . . . . . . . . . .  D  ADDR  00C0H  NOT USED
 P4M1 . . . . . . . . . . . . . . . .  D  ADDR  00D6H  NOT USED
 P4M2 . . . . . . . . . . . . . . . .  D  ADDR  00E4H  NOT USED
 P5 . . . . . . . . . . . . . . . . .  D  ADDR  00E8H  NOT USED
-PARSE_DECS . . . . . . . . . . . . .  C  ADDR  0076H
-PARSE_UNITS. . . . . . . . . . . . .  C  ADDR  006FH
 PC . . . . . . . . . . . . . . . . .  B  ADDR  00BEH  NOT USED
 PCON . . . . . . . . . . . . . . . .  D  ADDR  0087H  NOT USED
 PPCL . . . . . . . . . . . . . . . .  B  ADDR  00BEH  NOT USED
@@ -252,7 +228,7 @@ RD . . . . . . . . . . . . . . . . .  B  ADDR  00B7H  NOT USED
 RELOAD_T0. . . . . . . . . . . . . .  C  ADDR  0011H
 REN. . . . . . . . . . . . . . . . .  B  ADDR  009CH  NOT USED
 RESET. . . . . . . . . . . . . . . .  C  ADDR  0000H  NOT USED
-RESET_COUNTER. . . . . . . . . . . .  C  ADDR  0032H
+RESET_COUNTER. . . . . . . . . . . .  C  ADDR  0035H
 RI . . . . . . . . . . . . . . . . .  B  ADDR  0098H  NOT USED
 RS0. . . . . . . . . . . . . . . . .  B  ADDR  00D3H  NOT USED
 RS1. . . . . . . . . . . . . . . . .  B  ADDR  00D4H  NOT USED
@@ -265,7 +241,6 @@ SADEN_0. . . . . . . . . . . . . . .  D  ADDR  00B9H  NOT USED
 SADEN_1. . . . . . . . . . . . . . .  D  ADDR  00BAH  NOT USED
 SBUF . . . . . . . . . . . . . . . .  D  ADDR  0099H  NOT USED
 SCON . . . . . . . . . . . . . . . .  D  ADDR  0098H  NOT USED
-SET_CORR_CHAR_DPTR_INDEX . . . . . .  C  ADDR  007DH
 SINT . . . . . . . . . . . . . . . .  C  ADDR  0023H  NOT USED
 SM0. . . . . . . . . . . . . . . . .  B  ADDR  009FH  NOT USED
 SM1. . . . . . . . . . . . . . . . .  B  ADDR  009EH  NOT USED
@@ -302,7 +277,8 @@ TR0. . . . . . . . . . . . . . . . .  B  ADDR  008CH
 TR1. . . . . . . . . . . . . . . . .  B  ADDR  008EH  NOT USED
 TR2. . . . . . . . . . . . . . . . .  B  ADDR  00CAH  NOT USED
 TXD. . . . . . . . . . . . . . . . .  B  ADDR  00B1H  NOT USED
-UPDATE_LED . . . . . . . . . . . . .  C  ADDR  005AH
+UPDATE_LED_TENS. . . . . . . . . . .  C  ADDR  006FH
+UPDATE_LED_UNIT. . . . . . . . . . .  C  ADDR  0065H
 WDTCON . . . . . . . . . . . . . . .  D  ADDR  00A7H  NOT USED
 WDTPRG . . . . . . . . . . . . . . .  D  ADDR  00A7H  NOT USED
 WDTRST . . . . . . . . . . . . . . .  D  ADDR  00A6H  NOT USED
