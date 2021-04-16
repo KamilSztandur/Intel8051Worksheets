@@ -1,0 +1,540 @@
+lab6                                                                                                                    PAGE 1
+                         1     ;               .-------------------------------.
+                         2     ;               |   Czekaj Bartłomiej 307336    |
+                         3     ;               |     Sztandur Kamil 307354     |
+                         4     ;               *-------------------------------*
+                         5
+                         6     ORG 0000h
+0000 020018              7             ljmp init
+                         8
+                         9     ORG 000Bh                                       ; Wektor przerwania T0
+000B 0200BA             10             ljmp detect_pressed_key                 ; Obsłużenie przerwania od T0
+000E 120011             11             lcall reload_T0
+                        12
+                        13     reload_T0:
+0011 758AF7             14             MOV TL0, #0F7h                          ; | Zresetowanie wartości timera
+0014 758CFF             15             MOV TH0, #0FFh                          ; |
+0017 22                 16             RET
+                        17
+                        18     init:
+0018 75A800             19             MOV IE, #0h                             ; Wyłączenie wszystkich przerwań
+001B C28C               20             CLR TR0                                 ; Zatrzymanie timera T0
+001D C28D               21             CLR TF0                                 ; Wyzerowanie flagi przepełnienia
+001F 758901             22             MOV TMOD, #01h                          ; Inicjalizacja timera T0
+0022 120011             23             lcall reload_T0                         ; Ustawienie wartości timera
+0025 75B800             24             MOV IP, #0h                             ; Ustawienie priorytetu przerwań na niski
+0028 75A882             25             MOV IE, #82h                            ; Odblokuj przerwania timera T0
+002B 903000             26             MOV DPTR, #3000h                        ; Ustaw indeks początkowy
+002E 7530FF             27             MOV 30h, #11111111b                     ; inicjalizacja wartości w pamięci, tu będziemy przec
+0031 7800               28             MOV R0, #0b
+0033 7900               29             MOV R1, #0b
+0035 7A00               30             MOV R2, #0b
+0037 7BFF               31             MOV R3, #11111111b
+0039 7CFF               32             MOV R4, #11111111b
+003B 7DFF               33             MOV R5, #11111111b
+003D 7EFF               34             MOV R6, #11111111b
+003F 7FFF               35             MOV R7, #11111111b
+0041 D28C               36             SETB TR0                                ; Uruchomienie odliczania
+                        37
+0043 80FE               38     main:   sjmp main                               ; Nieskończona pętla (czeka na przerwanie)
+                        39
+                        40     indexes_detected:
+0045 12018B             41             lcall get_pressed_key_number            ; Pobierz wartość liczby na klawiszu do akumulatora
+0048 120011             42             lcall reload_t0
+004B BF0004             43             CJNE R7, #0, variable_R7_eq_1           ; Gdy R7 = 1, to wciśnięty klawisz został "odkliknię
+004E B53004             44             CJNE A, 30h, new_value                  ; | porównanie pobranej z klawiatury liczby z ostatni
+0051 32                 45             RETI                                    ; | uniemożliwia ponowne wstawienie cyfry z tej samej
+                        46
+                        47     variable_R7_eq_1:
+0052 020055             48             JMP new_value
+                        49
+                        50     new_value:
+0055 7F00               51             MOV R7, #0                              ; zerujemy R7
+0057 B4FF03             52             CJNE A, #255, save_current_number       ; jeśli wybrano cyfrę to zapisz ją do rejestrów R3-R6
+005A 0200A0             53             ljmp show_error_and_reset               ; jeśli to nie cyfra to wyświetl błąd
+                        54
+                        55     save_current_number:
+005D 75B0FF             56             MOV P3, #11111111b
+0060 BBFF04             57             CJNE R3, #11111111b, save_current_number_to_R4 ; jak nie ma miejsca w R3 to do R4 itd...
+0063 FB                 58             MOV R3, A                               ; jest miejsce
+0064 F530               59             MOV 30h, A                              ; zapisanie ostatniej wartości
+0066 32                 60             RETI
+                        61     save_current_number_to_R4:
+0067 BCFF04             62             CJNE R4, #11111111b, save_current_number_to_R5
+006A FC                 63             MOV R4, A
+006B F530               64             MOV 30h, A
+006D 32                 65             RETI
+                        66     save_current_number_to_R5:
+006E BDFF04             67             CJNE R5, #11111111b, save_current_number_to_R6
+0071 FD                 68             MOV R5, A
+0072 F530               69             MOV 30h, A
+0074 32                 70             RETI
+                        71
+                        72     save_current_number_to_R6:
+0075 FE                 73             MOV R6, A                               ; git wszystkie cyfry zebrane
+0076 32                 74             RETI
+                        75
+                        76     check_correctness_of_PIN:
+0077 7400               77             MOV A, #0h
+0079 93                 78             MOVC A,@A+DPTR                          ; pobiera z pamięci prawidłową cyfre
+007A 8B30               79             MOV 30h, R3
+007C B53021             80             CJNE A, 30h, show_error_and_reset       ; jeśli nie zgadza się to wyświetli błąd
+                        81
+007F 7401               82             MOV A, #1h
+0081 93                 83             MOVC A,@A+DPTR
+0082 8C30               84             MOV 30h, R4
+0084 B53019             85             CJNE A, 30h, show_error_and_reset
+                        86
+0087 7402               87             MOV A, #2h
+0089 93                 88             MOVC A,@A+DPTR
+008A 8D30               89             MOV 30h, R5
+008C B53011             90             CJNE A, 30h, show_error_and_reset
+                        91
+008F 7403               92             MOV A, #3h
+0091 93                 93             MOVC A,@A+DPTR
+0092 8E30               94             MOV 30h, R6
+0094 B53009             95             CJNE A, 30h, show_error_and_reset
+                        96
+0097 02009A             97             jmp correct_PIN                         ; wszystkie cyfry poprawne, skok do wyświetlenia komu
+                        98
+                        99     correct_PIN:
+009A 75B0FE            100             MOV P3, #254
+009D 0200A6            101             jmp reset_registers                     ; wyświetliło poprawność, teraz zresetuje rejestry
+                       102
+                       103     show_error_and_reset:
+00A0 75B0FD            104             MOV P3, #253
+00A3 0200A6            105             jmp reset_registers                     ; wyświetliło niepoprawność PIN-u, również zresetuje
+                       106
+                       107     reset_registers:                                ; reset rejestrów + reload timera
+00A6 7800              108             MOV R0, #0b
+00A8 7900              109             MOV R1, #0b
+00AA 7A00              110             MOV R2, #0b
+00AC 7BFF              111             MOV R3, #11111111b
+00AE 7CFF              112             MOV R4, #11111111b
+00B0 7DFF              113             MOV R5, #11111111b
+00B2 7EFF              114             MOV R6, #11111111b
+00B4 7FFF              115             MOV R7, #11111111b
+00B6 120011            116             lcall reload_t0
+00B9 32                117             RETI
+                       118
+                       119     detect_pressed_key:                             ; Wykrywanie wciśniętego klawisza
+00BA 7800              120             MOV R0, #00000000b                      ; Licznik pomocniczy do określenia wykrycia przycisku
+00BC 79FF              121             MOV R1, #11111111b                      ; Rejestr z indeksem wiersza wciśniętego przycisku
+00BE 7AFF              122             MOV R2, #11111111b                      ; Rejestr z indeksem kolumny wciśniętego przycisku
+                       123
+                       124     rows:                                           ; WIERSZE
+00C0 7590FE            125     row0:   MOV P1, #11111110b                      ; Zbadaj ten wiersz
+00C3 120160            126             lcall check                             ; Sprawdź, czy wykryto w tym rzędzie przycisk
+00C6 5005              127             JNC row1                                ; Jeżeli nie, to szukaj w następnym
+00C8 7900              128             MOV R1, #00000000b                      ; Jeżeli tak, to zapisz indeks tego wiersza do R1
+00CA 020128            129             ljmp cols                               ; Przeszukaj kolumny, bo wiersz już znaleziony
+                       130
+00CD 7590FD            131     row1:   MOV P1, #11111101b                      ; Zbadaj ten wiersz
+00D0 120160            132             lcall check                             ; Sprawdź, czy wykryto w tym rzędzie przycisk
+00D3 5005              133             JNC row2                                ; Jeżeli nie, to szukaj w następnym
+00D5 7901              134             MOV R1, #00000001b                      ; Jeżeli tak, to zapisz indeks tego wiersza do R1
+00D7 020128            135             ljmp cols                               ; Przeszukaj kolumny, bo wiersz już znaleziony
+                       136
+00DA 7590FB            137     row2:   MOV P1, #11111011b                      ; Zbadaj ten wiersz
+00DD 120160            138             lcall check                             ; Sprawdź, czy wykryto w tym rzędzie przycisk
+00E0 5005              139             JNC row3                                ; Jeżeli nie, to szukaj w następnym
+00E2 7902              140             MOV R1, #00000010b                      ; Jeżeli tak, to zapisz indeks tego wiersza do R1
+00E4 020128            141             ljmp cols                               ; Przeszukaj kolumny, bo wiersz już znaleziony
+                       142
+00E7 7590F7            143     row3:   MOV P1, #11110111b                      ; Zbadaj ten wiersz
+00EA 120160            144             lcall check                             ; Sprawdź, czy wykryto w tym rzędzie przycisk
+00ED 5005              145             JNC no_row                              ; Nie wykryto wciśniętego przycisku w żadnym wierszu
+00EF 7903              146             MOV R1, #00000011b                      ; Jeżeli tak, to zapisz indeks tego wiersza do R1
+00F1 020128            147             ljmp cols                               ; Przeszukaj kolumny, bo wiersz już znaleziony
+                       148
+                       149     no_row:                                         ; Żaden wiersz nie wykrył przycisku - powrót
+00F4 74FF              150             MOV A, #11111111b
+00F6 7FFF              151             MOV R7, #11111111b
+00F8 BBFF04            152             CJNE R3, #11111111b, pin0_r
+00FB 120011            153             lcall reload_t0
+00FE 32                154             RETI
+00FF BCFF04            155     pin0_r: CJNE R4, #11111111b, pin1_r             ; Pierwsza cyfra PINu została wpisana.
+0102 120011            156             lcall reload_t0
+0105 32                157             RETI
+0106 BDFF04            158     pin1_r: CJNE R5, #11111111b, pin2_r             ; Druga cyfra PINu została wpisana.
+0109 120011            159             lcall reload_t0
+010C 32                160             RETI
+010D BEFF04            161     pin2_r: CJNE R6, #11111111b, pin3_r             ; Trzecia cyfra PINu została wpisana.
+0110 120011            162             lcall reload_t0
+0113 32                163             RETI
+0114 BCFF04            164     pin3_r: CJNE R4, #11111111b, pin4_r             ; Czwarta cyfra PINu została wpisana.
+0117 120011            165             lcall reload_t0
+011A 32                166             RETI
+011B 020077            167     pin4_r: LJMP check_correctness_of_PIN           ; Gotowe. Skok do sprawdzenia poprawności PIN-u
+                       168
+                       169     jump_to_saving:                                 ; zapisanie cyfry
+011E D0E0              170             POP A
+0120 7FFF              171             MOV R7, #255
+0122 120011            172             lcall reload_t0
+0125 02005D            173             ljmp save_current_number
+                       174
+0128 7590EF            175     cols:   MOV P1, #11101111b                      ; Zbadaj tę kolumnę
+012B 120160            176             lcall check                             ; Sprawdź, czy wykryto w tej kolumnie przycisk
+012E 5005              177             JNC col5                                ; Jeżeli nie, to szukaj w następnej
+0130 7A04              178             MOV R2, #00000100b                      ; Jeżeli tak, to zapisz indeks tej kolumny do R2
+0132 020045            179             ljmp indexes_detected                   ; Mamy oba indeksy. Zakończ przeszukiwanie.
+                       180
+0135 7590DF            181     col5:   MOV P1, #11011111b                      ; Zbadaj tę kolumnę
+0138 120160            182             lcall check                             ; Sprawdź, czy wykryto w tej kolumnie przycisk
+013B 5005              183             JNC col6                                ; Jeżeli nie, to szukaj w następnej
+013D 7A05              184             MOV R2, #00000101b                      ; Jeżeli tak, to zapisz indeks tej kolumny do R2
+013F 020045            185             ljmp indexes_detected                   ; Mamy oba indeksy. Zakończ przeszukiwanie.
+                       186
+0142 7590BF            187     col6:   MOV P1, #10111111b                      ; Zbadaj tę kolumnę
+0145 120160            188             lcall check                             ; Sprawdź, czy wykryto w tej kolumnie przycisk
+0148 5005              189             JNC col7                                ; Jeżeli nie, to szukaj w następnej
+014A 7A06              190             MOV R2, #00000110b                      ; Jeżeli tak, to zapisz indeks tej kolumny do R2
+014C 020045            191             ljmp indexes_detected                   ; Mamy oba indeksy. Zakończ przeszukiwanie.
+                       192
+014F 75907F            193     col7:   MOV P1, #01111111b                      ; Zbadaj tę kolumnę
+0152 120160            194             lcall check                             ; Sprawdź, czy wykryto w tej kolumnie przycisk
+0155 5005              195             JNC no_col                              ; Nie wykryto wciśniętego przycisku w żadnej kolumnie
+0157 7A07              196             MOV R2, #00000111b                      ; Jeżeli tak, to zapisz indeks tej kolumny do R2
+0159 020045            197             ljmp indexes_detected                   ; Mamy oba indeksy. Zakończ przeszukiwanie.
+                       198
+                       199     no_col:                                         ; Skoro nie wykryto w żadnej kolumnie, to powrót
+015C 120011            200             lcall reload_t0
+015F 32                201             RETI
+                       202
+                       203     check:                                          ; WAŻNE!!! NIEZAPALONY BIT = ZAPALONA LINIA
+0160 209001            204     bit0:   JB P1.0, bit1                           ; Sprawdź czy bit 0 jest zapalony
+0163 08                205             INC R0                                  ; Jeżeli nie jest zapalony, to inkrementuj licznik R0
+0164 209101            206     bit1:   JB P1.1, bit2                           ; Sprawdź czy bit 1 jest zapalony
+0167 08                207             INC R0                                  ; Jeżeli nie jest zapalony, to inkrementuj licznik R0
+0168 209201            208     bit2:   JB P1.2, bit3                           ; Sprawdź czy bit 2 jest zapalony
+016B 08                209             INC R0                                  ; Jeżeli nie jest zapalony, to inkrementuj licznik R0
+016C 209301            210     bit3:   JB P1.3, bit4                           ; Sprawdź czy bit 3 jest zapalony
+016F 08                211             INC R0                                  ; Jeżeli nie jest zapalony, to inkrementuj licznik R0
+0170 209401            212     bit4:   JB P1.4, bit5                           ; Sprawdź czy bit 4 jest zapalony
+0173 08                213             INC R0                                  ; Jeżeli nie jest zapalony, to inkrementuj licznik R0
+0174 209501            214     bit5:   JB P1.5, bit6                           ; Sprawdź czy bit 5 jest zapalony
+0177 08                215             INC R0                                  ; Jeżeli nie jest zapalony, to inkrementuj licznik R0
+0178 209601            216     bit6:   JB P1.6, bit7                           ; Sprawdź czy bit 6 jest zapalony
+017B 08                217             INC R0                                  ; Jeżeli nie jest zapalony, to inkrementuj licznik R0
+017C 209701            218     bit7:   JB P1.7, fin                            ; Sprawdź czy bit 6 jest zapalony
+017F 08                219             INC R0
+0180 B80204            220     fin:    CJNE R0, #10b, not_pressed              ; Mniej niz 2 bity, nie ma tu wcisnietego klawisza
+                       221
+                       222     is_pressed:
+0183 D3                223             SETB C                                  ; Zasygnalizuj bitem C, że znaleziono klawisz
+0184 7800              224             MOV R0, #00000000b                      ; Wyzeruj licznik R0
+0186 22                225             RET
+                       226
+                       227     not_pressed:
+0187 C3                228             CLR C                                   ; Nie znaleziono tu klawisza, wyzeruj bit C
+0188 7800              229             MOV R0, #00000000b                      ; Wyzeruj licznik R0
+018A 22                230             RET
+                       231
+                       232
+                       233     get_pressed_key_number:
+                       234     is_in_row0:
+018B B90012            235             CJNE R1, #0d, is_in_row1                ; Jeżeli to nie ten wiersz, to przelacz na nastepny
+                       236     is_in_row0_col4:
+018E BA0403            237             CJNE R2, #4d, is_in_row0_col5           ; Jeżeli to nie ta kolumna, to przelacz na nastepna
+0191 7401              238             MOV A, #00000001b                       ; Wciśnięty klawisz to '1'
+0193 22                239             RET
+                       240     is_in_row0_col5:
+0194 BA0503            241             CJNE R2, #5d, is_in_row0_col6           ; Jeżeli to nie ta kolumna, to przelacz na nastepna
+0197 7402              242             MOV A, #00000010b                       ; Wciśnięty klawisz to '2'
+0199 22                243             RET
+                       244     is_in_row0_col6:
+019A BA0636            245             CJNE R2, #6d, unknown_button            ; Wykryto niedozwolony klawisz
+019D 7403              246             MOV A, #00000011b                       ; Wciśnięty klawisz to '3'
+019F 22                247             RET
+                       248
+                       249     is_in_row1:
+01A0 B90112            250             CJNE R1, #1d, is_in_row2                ; Jeżeli to nie ten wiersz, to przelacz na nastepny
+                       251     is_in_row1_col4:
+01A3 BA0403            252             CJNE R2, #4d, is_in_row1_col5           ; Jeżeli to nie ta kolumna, to przelacz na nastepna
+01A6 7404              253             MOV A, #00000100b                       ; Wciśnięty klawisz to '4'
+01A8 22                254             RET
+                       255     is_in_row1_col5:
+01A9 BA0503            256             CJNE R2, #5d, is_in_row1_col6           ; Jeżeli to nie ta kolumna, to przelacz na nastepna
+01AC 7405              257             MOV A, #00000101b                       ; Wciśnięty klawisz to '5'
+01AE 22                258             RET
+                       259     is_in_row1_col6:
+01AF BA0621            260             CJNE R2, #6d, unknown_button            ; Wykryto niedozwolony klawisz
+01B2 7406              261             MOV A, #00000110b                       ; Wciśnięty klawisz to '6'
+01B4 22                262             RET
+                       263
+                       264     is_in_row2:
+01B5 B90212            265             CJNE R1, #2d, is_in_row3                ; Jeżeli to nie ten wiersz, to przelacz na nastepny
+                       266     is_in_row2_col4:
+01B8 BA0403            267             CJNE R2, #4d, is_in_row2_col5           ; Jeżeli to nie ta kolumna, to przelacz na nastepna
+01BB 7407              268             MOV A, #00000111b                       ; Wciśnięty klawisz to '7'
+01BD 22                269             RET
+                       270     is_in_row2_col5:
+01BE BA0503            271             CJNE R2, #5d, is_in_row2_col6           ; Jeżeli to nie ta kolumna, to przelacz na nastepna
+01C1 7408              272             MOV A, #00001000b                       ; Wciśnięty klawisz to '8'
+01C3 22                273             RET
+                       274     is_in_row2_col6:
+01C4 BA060C            275             CJNE R2, #6d, unknown_button            ; Wykryto niedozwolony klawisz
+01C7 7409              276             MOV A, #00001001b                       ; Wciśnięty klawisz to '9'
+01C9 22                277             RET
+                       278
+                       279     is_in_row3:
+01CA B90306            280             CJNE R1, #3d, unknown_button            ; Wykryto niedozwolony klawisz
+                       281     is_in_row3_col_5:
+01CD BA0503            282             CJNE R2, #5d, unknown_button            ; Wykryto niedozwolony klawisz
+01D0 7400              283             MOV A, #00000000b                       ; Wciśnięty klawisz to '0'
+01D2 22                284             RET
+                       285
+                       286     unknown_button:                                 ; Nieprawidłowy klawisz. Awaryjna sekwencja bitów
+01D3 74FF              287             MOV A, #11111111b
+01D5 22                288             RET
+                       289
+                       290     ORG 3000h ; Tablica przechowująca PIN
+3000 02                291             db 00000010b ; 2
+3001 01                292             db 00000001b ; 1
+3002 00                293             db 00000000b ; 0
+3003 07                294             db 00000111b ; 7
+                       295     END
+ASSEMBLY COMPLETE, NO ERRORS FOUND, NO WARNINGS
+
+
+SYMBOL TABLE:
+??MCU_8051_IDE . . . . . . . . . . .  N  NUMB  8051H  NOT USED
+??VERSION. . . . . . . . . . . . . .  N  NUMB  0149H  NOT USED
+AC . . . . . . . . . . . . . . . . .  B  ADDR  00D6H  NOT USED
+ACC. . . . . . . . . . . . . . . . .  D  ADDR  00E0H  NOT USED
+ACSR . . . . . . . . . . . . . . . .  D  ADDR  0097H  NOT USED
+ADCF . . . . . . . . . . . . . . . .  D  ADDR  00F6H  NOT USED
+ADCLK. . . . . . . . . . . . . . . .  D  ADDR  00F2H  NOT USED
+ADCON. . . . . . . . . . . . . . . .  D  ADDR  00F3H  NOT USED
+ADDH . . . . . . . . . . . . . . . .  D  ADDR  00F5H  NOT USED
+ADDL . . . . . . . . . . . . . . . .  D  ADDR  00F4H  NOT USED
+AUXR . . . . . . . . . . . . . . . .  D  ADDR  008EH  NOT USED
+AUXR1. . . . . . . . . . . . . . . .  D  ADDR  00A2H  NOT USED
+B. . . . . . . . . . . . . . . . . .  D  ADDR  00F0H  NOT USED
+BDRCON . . . . . . . . . . . . . . .  D  ADDR  009BH  NOT USED
+BDRCON_1 . . . . . . . . . . . . . .  D  ADDR  009CH  NOT USED
+BIT0 . . . . . . . . . . . . . . . .  C  ADDR  0160H  NOT USED
+BIT1 . . . . . . . . . . . . . . . .  C  ADDR  0164H
+BIT2 . . . . . . . . . . . . . . . .  C  ADDR  0168H
+BIT3 . . . . . . . . . . . . . . . .  C  ADDR  016CH
+BIT4 . . . . . . . . . . . . . . . .  C  ADDR  0170H
+BIT5 . . . . . . . . . . . . . . . .  C  ADDR  0174H
+BIT6 . . . . . . . . . . . . . . . .  C  ADDR  0178H
+BIT7 . . . . . . . . . . . . . . . .  C  ADDR  017CH
+BRL. . . . . . . . . . . . . . . . .  D  ADDR  009AH  NOT USED
+CCAP0H . . . . . . . . . . . . . . .  D  ADDR  00FAH  NOT USED
+CCAP0L . . . . . . . . . . . . . . .  D  ADDR  00EAH  NOT USED
+CCAP1H . . . . . . . . . . . . . . .  D  ADDR  00FBH  NOT USED
+CCAP1L . . . . . . . . . . . . . . .  D  ADDR  00EBH  NOT USED
+CCAP2H . . . . . . . . . . . . . . .  D  ADDR  00FCH  NOT USED
+CCAP3H . . . . . . . . . . . . . . .  D  ADDR  00FDH  NOT USED
+CCAP4H . . . . . . . . . . . . . . .  D  ADDR  00FEH  NOT USED
+CCAPL2H. . . . . . . . . . . . . . .  D  ADDR  00FCH  NOT USED
+CCAPL2L. . . . . . . . . . . . . . .  D  ADDR  00ECH  NOT USED
+CCAPL3H. . . . . . . . . . . . . . .  D  ADDR  00FDH  NOT USED
+CCAPL3L. . . . . . . . . . . . . . .  D  ADDR  00EDH  NOT USED
+CCAPL4H. . . . . . . . . . . . . . .  D  ADDR  00FEH  NOT USED
+CCAPL4L. . . . . . . . . . . . . . .  D  ADDR  00EEH  NOT USED
+CCAPM0 . . . . . . . . . . . . . . .  D  ADDR  00DAH  NOT USED
+CCAPM1 . . . . . . . . . . . . . . .  D  ADDR  00DBH  NOT USED
+CCAPM2 . . . . . . . . . . . . . . .  D  ADDR  00DCH  NOT USED
+CCAPM3 . . . . . . . . . . . . . . .  D  ADDR  00DDH  NOT USED
+CCAPM4 . . . . . . . . . . . . . . .  D  ADDR  00DEH  NOT USED
+CCF0 . . . . . . . . . . . . . . . .  B  ADDR  00D8H  NOT USED
+CCF1 . . . . . . . . . . . . . . . .  B  ADDR  00D9H  NOT USED
+CCF2 . . . . . . . . . . . . . . . .  B  ADDR  00DAH  NOT USED
+CCF3 . . . . . . . . . . . . . . . .  B  ADDR  00DBH  NOT USED
+CCF4 . . . . . . . . . . . . . . . .  B  ADDR  00DCH  NOT USED
+CCON . . . . . . . . . . . . . . . .  D  ADDR  00D8H  NOT USED
+CFINT. . . . . . . . . . . . . . . .  C  ADDR  0033H  NOT USED
+CH . . . . . . . . . . . . . . . . .  D  ADDR  00F9H  NOT USED
+CHECK. . . . . . . . . . . . . . . .  C  ADDR  0160H
+CHECK_CORRECTNESS_OF_PIN . . . . . .  C  ADDR  0077H
+CKCON. . . . . . . . . . . . . . . .  D  ADDR  008FH  NOT USED
+CKCON0 . . . . . . . . . . . . . . .  D  ADDR  008FH  NOT USED
+CKRL . . . . . . . . . . . . . . . .  D  ADDR  0097H  NOT USED
+CKSEL. . . . . . . . . . . . . . . .  D  ADDR  0085H  NOT USED
+CL . . . . . . . . . . . . . . . . .  D  ADDR  00E9H  NOT USED
+CLKREG . . . . . . . . . . . . . . .  D  ADDR  008FH  NOT USED
+CMOD . . . . . . . . . . . . . . . .  D  ADDR  00D9H  NOT USED
+COL5 . . . . . . . . . . . . . . . .  C  ADDR  0135H
+COL6 . . . . . . . . . . . . . . . .  C  ADDR  0142H
+COL7 . . . . . . . . . . . . . . . .  C  ADDR  014FH
+COLS . . . . . . . . . . . . . . . .  C  ADDR  0128H
+CORRECT_PIN. . . . . . . . . . . . .  C  ADDR  009AH
+CPRL2. . . . . . . . . . . . . . . .  B  ADDR  00C8H  NOT USED
+CR . . . . . . . . . . . . . . . . .  B  ADDR  00DEH  NOT USED
+CT2. . . . . . . . . . . . . . . . .  B  ADDR  00C9H  NOT USED
+CY . . . . . . . . . . . . . . . . .  B  ADDR  00D7H  NOT USED
+DETECT_PRESSED_KEY . . . . . . . . .  C  ADDR  00BAH
+DP0H . . . . . . . . . . . . . . . .  D  ADDR  0083H  NOT USED
+DP0L . . . . . . . . . . . . . . . .  D  ADDR  0082H  NOT USED
+DP1H . . . . . . . . . . . . . . . .  D  ADDR  0085H  NOT USED
+DP1L . . . . . . . . . . . . . . . .  D  ADDR  0084H  NOT USED
+DPH. . . . . . . . . . . . . . . . .  D  ADDR  0083H  NOT USED
+DPL. . . . . . . . . . . . . . . . .  D  ADDR  0082H  NOT USED
+EA . . . . . . . . . . . . . . . . .  B  ADDR  00AFH  NOT USED
+EC . . . . . . . . . . . . . . . . .  B  ADDR  00AEH  NOT USED
+EECON. . . . . . . . . . . . . . . .  D  ADDR  0096H  NOT USED
+ES . . . . . . . . . . . . . . . . .  B  ADDR  00ACH  NOT USED
+ET0. . . . . . . . . . . . . . . . .  B  ADDR  00A9H  NOT USED
+ET1. . . . . . . . . . . . . . . . .  B  ADDR  00ABH  NOT USED
+ET2. . . . . . . . . . . . . . . . .  B  ADDR  00ADH  NOT USED
+EX0. . . . . . . . . . . . . . . . .  B  ADDR  00A8H  NOT USED
+EX1. . . . . . . . . . . . . . . . .  B  ADDR  00AAH  NOT USED
+EXEN2. . . . . . . . . . . . . . . .  B  ADDR  00CBH  NOT USED
+EXF2 . . . . . . . . . . . . . . . .  B  ADDR  00CEH  NOT USED
+EXTI0. . . . . . . . . . . . . . . .  C  ADDR  0003H  NOT USED
+EXTI1. . . . . . . . . . . . . . . .  C  ADDR  0013H  NOT USED
+F0 . . . . . . . . . . . . . . . . .  B  ADDR  00D5H  NOT USED
+FE . . . . . . . . . . . . . . . . .  B  ADDR  009FH  NOT USED
+FIN. . . . . . . . . . . . . . . . .  C  ADDR  0180H
+GET_PRESSED_KEY_NUMBER . . . . . . .  C  ADDR  018BH
+IE . . . . . . . . . . . . . . . . .  D  ADDR  00A8H
+IE0. . . . . . . . . . . . . . . . .  B  ADDR  0089H  NOT USED
+IE1. . . . . . . . . . . . . . . . .  B  ADDR  008BH  NOT USED
+INDEXES_DETECTED . . . . . . . . . .  C  ADDR  0045H
+INIT . . . . . . . . . . . . . . . .  C  ADDR  0018H
+INT0 . . . . . . . . . . . . . . . .  B  ADDR  00B2H  NOT USED
+INT1 . . . . . . . . . . . . . . . .  B  ADDR  00B3H  NOT USED
+IP . . . . . . . . . . . . . . . . .  D  ADDR  00B8H
+IPH. . . . . . . . . . . . . . . . .  D  ADDR  00B7H  NOT USED
+IPH0 . . . . . . . . . . . . . . . .  D  ADDR  00B7H  NOT USED
+IPH1 . . . . . . . . . . . . . . . .  D  ADDR  00B3H  NOT USED
+IPL0 . . . . . . . . . . . . . . . .  D  ADDR  00B8H  NOT USED
+IPL1 . . . . . . . . . . . . . . . .  D  ADDR  00B2H  NOT USED
+IS_IN_ROW0 . . . . . . . . . . . . .  C  ADDR  018BH  NOT USED
+IS_IN_ROW0_COL4. . . . . . . . . . .  C  ADDR  018EH  NOT USED
+IS_IN_ROW0_COL5. . . . . . . . . . .  C  ADDR  0194H
+IS_IN_ROW0_COL6. . . . . . . . . . .  C  ADDR  019AH
+IS_IN_ROW1 . . . . . . . . . . . . .  C  ADDR  01A0H
+IS_IN_ROW1_COL4. . . . . . . . . . .  C  ADDR  01A3H  NOT USED
+IS_IN_ROW1_COL5. . . . . . . . . . .  C  ADDR  01A9H
+IS_IN_ROW1_COL6. . . . . . . . . . .  C  ADDR  01AFH
+IS_IN_ROW2 . . . . . . . . . . . . .  C  ADDR  01B5H
+IS_IN_ROW2_COL4. . . . . . . . . . .  C  ADDR  01B8H  NOT USED
+IS_IN_ROW2_COL5. . . . . . . . . . .  C  ADDR  01BEH
+IS_IN_ROW2_COL6. . . . . . . . . . .  C  ADDR  01C4H
+IS_IN_ROW3 . . . . . . . . . . . . .  C  ADDR  01CAH
+IS_IN_ROW3_COL_5 . . . . . . . . . .  C  ADDR  01CDH  NOT USED
+IS_PRESSED . . . . . . . . . . . . .  C  ADDR  0183H  NOT USED
+IT0. . . . . . . . . . . . . . . . .  B  ADDR  0088H  NOT USED
+IT1. . . . . . . . . . . . . . . . .  B  ADDR  008AH  NOT USED
+JUMP_TO_SAVING . . . . . . . . . . .  C  ADDR  011EH  NOT USED
+KBE. . . . . . . . . . . . . . . . .  D  ADDR  009DH  NOT USED
+KBF. . . . . . . . . . . . . . . . .  D  ADDR  009EH  NOT USED
+KBLS . . . . . . . . . . . . . . . .  D  ADDR  009CH  NOT USED
+MAIN . . . . . . . . . . . . . . . .  C  ADDR  0043H
+NEW_VALUE. . . . . . . . . . . . . .  C  ADDR  0055H
+NOT_PRESSED. . . . . . . . . . . . .  C  ADDR  0187H
+NO_COL . . . . . . . . . . . . . . .  C  ADDR  015CH
+NO_ROW . . . . . . . . . . . . . . .  C  ADDR  00F4H
+OSCCON . . . . . . . . . . . . . . .  D  ADDR  0086H  NOT USED
+OV . . . . . . . . . . . . . . . . .  B  ADDR  00D2H  NOT USED
+P. . . . . . . . . . . . . . . . . .  B  ADDR  00D0H  NOT USED
+P0 . . . . . . . . . . . . . . . . .  D  ADDR  0080H  NOT USED
+P1 . . . . . . . . . . . . . . . . .  D  ADDR  0090H
+P1M1 . . . . . . . . . . . . . . . .  D  ADDR  00D4H  NOT USED
+P1M2 . . . . . . . . . . . . . . . .  D  ADDR  00E2H  NOT USED
+P2 . . . . . . . . . . . . . . . . .  D  ADDR  00A0H  NOT USED
+P3 . . . . . . . . . . . . . . . . .  D  ADDR  00B0H
+P3M1 . . . . . . . . . . . . . . . .  D  ADDR  00D5H  NOT USED
+P3M2 . . . . . . . . . . . . . . . .  D  ADDR  00E3H  NOT USED
+P4 . . . . . . . . . . . . . . . . .  D  ADDR  00C0H  NOT USED
+P4M1 . . . . . . . . . . . . . . . .  D  ADDR  00D6H  NOT USED
+P4M2 . . . . . . . . . . . . . . . .  D  ADDR  00E4H  NOT USED
+P5 . . . . . . . . . . . . . . . . .  D  ADDR  00E8H  NOT USED
+PC . . . . . . . . . . . . . . . . .  B  ADDR  00BEH  NOT USED
+PCON . . . . . . . . . . . . . . . .  D  ADDR  0087H  NOT USED
+PIN0_R . . . . . . . . . . . . . . .  C  ADDR  00FFH
+PIN1_R . . . . . . . . . . . . . . .  C  ADDR  0106H
+PIN2_R . . . . . . . . . . . . . . .  C  ADDR  010DH
+PIN3_R . . . . . . . . . . . . . . .  C  ADDR  0114H
+PIN4_R . . . . . . . . . . . . . . .  C  ADDR  011BH
+PPCL . . . . . . . . . . . . . . . .  B  ADDR  00BEH  NOT USED
+PS . . . . . . . . . . . . . . . . .  B  ADDR  00BCH  NOT USED
+PSL. . . . . . . . . . . . . . . . .  B  ADDR  00BCH  NOT USED
+PSW. . . . . . . . . . . . . . . . .  D  ADDR  00D0H  NOT USED
+PT0. . . . . . . . . . . . . . . . .  B  ADDR  00B9H  NOT USED
+PT0L . . . . . . . . . . . . . . . .  B  ADDR  00B9H  NOT USED
+PT1. . . . . . . . . . . . . . . . .  B  ADDR  00BBH  NOT USED
+PT1L . . . . . . . . . . . . . . . .  B  ADDR  00BBH  NOT USED
+PT2. . . . . . . . . . . . . . . . .  B  ADDR  00BDH  NOT USED
+PT2L . . . . . . . . . . . . . . . .  B  ADDR  00BDH  NOT USED
+PX0. . . . . . . . . . . . . . . . .  B  ADDR  00B8H  NOT USED
+PX0L . . . . . . . . . . . . . . . .  B  ADDR  00B8H  NOT USED
+PX1. . . . . . . . . . . . . . . . .  B  ADDR  00BAH  NOT USED
+PX1L . . . . . . . . . . . . . . . .  B  ADDR  00BAH  NOT USED
+RB8. . . . . . . . . . . . . . . . .  B  ADDR  009AH  NOT USED
+RCAP2H . . . . . . . . . . . . . . .  D  ADDR  00CBH  NOT USED
+RCAP2L . . . . . . . . . . . . . . .  D  ADDR  00CAH  NOT USED
+RCLK . . . . . . . . . . . . . . . .  B  ADDR  00CDH  NOT USED
+RD . . . . . . . . . . . . . . . . .  B  ADDR  00B7H  NOT USED
+RELOAD_T0. . . . . . . . . . . . . .  C  ADDR  0011H
+REN. . . . . . . . . . . . . . . . .  B  ADDR  009CH  NOT USED
+RESET. . . . . . . . . . . . . . . .  C  ADDR  0000H  NOT USED
+RESET_REGISTERS. . . . . . . . . . .  C  ADDR  00A6H
+RI . . . . . . . . . . . . . . . . .  B  ADDR  0098H  NOT USED
+ROW0 . . . . . . . . . . . . . . . .  C  ADDR  00C0H  NOT USED
+ROW1 . . . . . . . . . . . . . . . .  C  ADDR  00CDH
+ROW2 . . . . . . . . . . . . . . . .  C  ADDR  00DAH
+ROW3 . . . . . . . . . . . . . . . .  C  ADDR  00E7H
+ROWS . . . . . . . . . . . . . . . .  C  ADDR  00C0H  NOT USED
+RS0. . . . . . . . . . . . . . . . .  B  ADDR  00D3H  NOT USED
+RS1. . . . . . . . . . . . . . . . .  B  ADDR  00D4H  NOT USED
+RXD. . . . . . . . . . . . . . . . .  B  ADDR  00B0H  NOT USED
+SADDR. . . . . . . . . . . . . . . .  D  ADDR  00A9H  NOT USED
+SADDR_0. . . . . . . . . . . . . . .  D  ADDR  00A9H  NOT USED
+SADDR_1. . . . . . . . . . . . . . .  D  ADDR  00AAH  NOT USED
+SADEN. . . . . . . . . . . . . . . .  D  ADDR  00B9H  NOT USED
+SADEN_0. . . . . . . . . . . . . . .  D  ADDR  00B9H  NOT USED
+SADEN_1. . . . . . . . . . . . . . .  D  ADDR  00BAH  NOT USED
+SAVE_CURRENT_NUMBER. . . . . . . . .  C  ADDR  005DH
+SAVE_CURRENT_NUMBER_TO_R4. . . . . .  C  ADDR  0067H
+SAVE_CURRENT_NUMBER_TO_R5. . . . . .  C  ADDR  006EH
+SAVE_CURRENT_NUMBER_TO_R6. . . . . .  C  ADDR  0075H
+SBUF . . . . . . . . . . . . . . . .  D  ADDR  0099H  NOT USED
+SCON . . . . . . . . . . . . . . . .  D  ADDR  0098H  NOT USED
+SHOW_ERROR_AND_RESET . . . . . . . .  C  ADDR  00A0H
+SINT . . . . . . . . . . . . . . . .  C  ADDR  0023H  NOT USED
+SM0. . . . . . . . . . . . . . . . .  B  ADDR  009FH  NOT USED
+SM1. . . . . . . . . . . . . . . . .  B  ADDR  009EH  NOT USED
+SM2. . . . . . . . . . . . . . . . .  B  ADDR  009DH  NOT USED
+SP . . . . . . . . . . . . . . . . .  D  ADDR  0081H  NOT USED
+SPCON. . . . . . . . . . . . . . . .  D  ADDR  00C3H  NOT USED
+SPCR . . . . . . . . . . . . . . . .  D  ADDR  00D5H  NOT USED
+SPDAT. . . . . . . . . . . . . . . .  D  ADDR  00C5H  NOT USED
+SPDR . . . . . . . . . . . . . . . .  D  ADDR  0086H  NOT USED
+SPSR . . . . . . . . . . . . . . . .  D  ADDR  00AAH  NOT USED
+SPSTA. . . . . . . . . . . . . . . .  D  ADDR  00C4H  NOT USED
+T0 . . . . . . . . . . . . . . . . .  B  ADDR  00B4H  NOT USED
+T1 . . . . . . . . . . . . . . . . .  B  ADDR  00B5H  NOT USED
+T2CON. . . . . . . . . . . . . . . .  D  ADDR  00C8H  NOT USED
+T2MOD. . . . . . . . . . . . . . . .  D  ADDR  00C9H  NOT USED
+TB8. . . . . . . . . . . . . . . . .  B  ADDR  009BH  NOT USED
+TCLK . . . . . . . . . . . . . . . .  B  ADDR  00CCH  NOT USED
+TCON . . . . . . . . . . . . . . . .  D  ADDR  0088H  NOT USED
+TF0. . . . . . . . . . . . . . . . .  B  ADDR  008DH
+TF1. . . . . . . . . . . . . . . . .  B  ADDR  008FH  NOT USED
+TF2. . . . . . . . . . . . . . . . .  B  ADDR  00CFH  NOT USED
+TH0. . . . . . . . . . . . . . . . .  D  ADDR  008CH
+TH1. . . . . . . . . . . . . . . . .  D  ADDR  008DH  NOT USED
+TH2. . . . . . . . . . . . . . . . .  D  ADDR  00CDH  NOT USED
+TI . . . . . . . . . . . . . . . . .  B  ADDR  0099H  NOT USED
+TIMER0 . . . . . . . . . . . . . . .  C  ADDR  000BH  NOT USED
+TIMER1 . . . . . . . . . . . . . . .  C  ADDR  001BH  NOT USED
+TIMER2 . . . . . . . . . . . . . . .  C  ADDR  002BH  NOT USED
+TL0. . . . . . . . . . . . . . . . .  D  ADDR  008AH
+TL1. . . . . . . . . . . . . . . . .  D  ADDR  008BH  NOT USED
+TL2. . . . . . . . . . . . . . . . .  D  ADDR  00CCH  NOT USED
+TMOD . . . . . . . . . . . . . . . .  D  ADDR  0089H
+TR0. . . . . . . . . . . . . . . . .  B  ADDR  008CH
+TR1. . . . . . . . . . . . . . . . .  B  ADDR  008EH  NOT USED
+TR2. . . . . . . . . . . . . . . . .  B  ADDR  00CAH  NOT USED
+TXD. . . . . . . . . . . . . . . . .  B  ADDR  00B1H  NOT USED
+UNKNOWN_BUTTON . . . . . . . . . . .  C  ADDR  01D3H
+VARIABLE_R7_EQ_1 . . . . . . . . . .  C  ADDR  0052H
+WDTCON . . . . . . . . . . . . . . .  D  ADDR  00A7H  NOT USED
+WDTPRG . . . . . . . . . . . . . . .  D  ADDR  00A7H  NOT USED
+WDTRST . . . . . . . . . . . . . . .  D  ADDR  00A6H  NOT USED
+WR . . . . . . . . . . . . . . . . .  B  ADDR  00B6H  NOT USED
