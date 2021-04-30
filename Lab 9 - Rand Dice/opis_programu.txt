@@ -1,0 +1,6 @@
+R0 - flaga wciśnięcia przycisku, jeśli P3.1 nie wciśnięte i flaga równa 1 to znaczy, że przycisk był wciśnięty i należy wylosować liczbę.
+R1 - suma losowanych liczb
+Inicjujemy Timer T1, wartość z TL1 dzielimy przez 6 i resztę z dzielenia sumujemy z 1 i to jest nasza liczba pseudolosowa.
+Resetowanie odbywa się z przerwania z klawiatury(P3.2)
+Jeśli przycisk był wciśnięty to losujemy liczbę, wyświetlamy ją i ustawiamy opóźnienie wyświetlanej liczby na timerze T0 od którego pochodzą przerwania.
+Aby wyświetlić numer należało podzielić sumę R1 przez 10 i wtedy A - liczba dziesiątek, B - cyfra jedności, jeżeli A byłoby równe 10(suma >99) to przepełnienie i wyzerowanie sumy.
